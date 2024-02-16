@@ -1,0 +1,15 @@
+*.d
+*.o
+*.mk
+*.a
+*.bin
+*.elf
+*.map
+*.conf
+*.ld
+*.cmd
+build/
+
+.project
+.cproject
+*.project
