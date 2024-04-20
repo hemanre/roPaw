@@ -3,7 +3,7 @@
 
 # RoPaw
 
-Remote Controlled dua motor pet ;-) project 
+Remote Controlled dual motor pet ;-) project 
 
 ## Setup
 
