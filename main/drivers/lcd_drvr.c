@@ -13,6 +13,7 @@
 #include "esp_system.h"
 #include "driver/spi_master.h"
 #include "driver/gpio.h"
+#include "gpios.h"
 
 #include "misc/pretty_effect.h"
 
@@ -29,14 +30,14 @@
 
 #define LCD_HOST    SPI2_HOST
 
-#define PIN_NUM_MISO 17
-#define PIN_NUM_MOSI 15
-#define PIN_NUM_CLK  18
-#define PIN_NUM_CS   4
-
-#define PIN_NUM_DC   5
-#define PIN_NUM_RST  16
-#define PIN_NUM_BCKL 2
+//#define PIN_NUM_MISO 17
+//#define PIN_NUM_MOSI 15
+//#define PIN_NUM_CLK  18
+//#define PIN_NUM_CS   4
+//
+//#define PIN_NUM_DC   5
+//#define PIN_NUM_RST  16
+//#define PIN_NUM_BCKL 7
 
 //To speed up transfers, every SPI transfer sends a bunch of lines. This define specifies how many. More means more memory use,
 //but less overhead for setting up / finishing transfers. Make sure 240 is dividable by this.
@@ -199,7 +200,7 @@ void lcd_data(spi_device_handle_t spi, const uint8_t *data, int len)
 void lcd_spi_pre_transfer_callback(spi_transaction_t *t)
 {
     int dc=(int)t->user;
-    gpio_set_level(PIN_NUM_DC, dc);
+    gpio_set_level(GPIO_LCD_SPI_DC, dc);
 }
 
 uint32_t lcd_get_id(spi_device_handle_t spi)
@@ -233,15 +234,15 @@ void lcd_init(spi_device_handle_t spi)
 
     //Initialize non-SPI GPIOs
     gpio_config_t io_conf = {};
-    io_conf.pin_bit_mask = ((1ULL<<PIN_NUM_DC) | (1ULL<<PIN_NUM_RST) | (1ULL<<PIN_NUM_BCKL));
+    io_conf.pin_bit_mask = ((1ULL<<GPIO_LCD_SPI_DC) | (1ULL<<GPIO_LCD_RST) | (1ULL<<GPIO_LCD_BK_LIGHT));
     io_conf.mode = GPIO_MODE_OUTPUT;
     io_conf.pull_up_en = true;
     gpio_config(&io_conf);
 
     //Reset the display
-    gpio_set_level(PIN_NUM_RST, 0);
+    gpio_set_level(GPIO_LCD_RST, 0);
     vTaskDelay(100 / portTICK_PERIOD_MS);
-    gpio_set_level(PIN_NUM_RST, 1);
+    gpio_set_level(GPIO_LCD_RST, 1);
     vTaskDelay(100 / portTICK_PERIOD_MS);
 
     //detect LCD type
@@ -288,7 +289,7 @@ void lcd_init(spi_device_handle_t spi)
     }
 
     ///Enable backlight
-    gpio_set_level(PIN_NUM_BCKL, 1);
+    gpio_set_level(GPIO_LCD_BK_LIGHT, 1);
 }
 
 
@@ -402,9 +403,9 @@ void lcd_drvr_init(void){
     esp_err_t ret;
     spi_device_handle_t spi;
     spi_bus_config_t buscfg={
-        .miso_io_num=PIN_NUM_MISO,
-        .mosi_io_num=PIN_NUM_MOSI,
-        .sclk_io_num=PIN_NUM_CLK,
+        .miso_io_num=GPIO_LCD_SPI_MISO,
+        .mosi_io_num=GPIO_LCD_SPI_MOSI,
+        .sclk_io_num=GPIO_LCD_SPI_SCLK,
         .quadwp_io_num=-1,
         .quadhd_io_num=-1,
         .max_transfer_sz=PARALLEL_LINES*320*2+8
@@ -416,7 +417,7 @@ void lcd_drvr_init(void){
         .clock_speed_hz=10*1000*1000,           //Clock out at 10 MHz
 #endif
         .mode=0,                                //SPI mode 0
-        .spics_io_num=PIN_NUM_CS,               //CS pin
+        .spics_io_num=GPIO_LCD_CS,               //CS pin
         .queue_size=7,                          //We want to be able to queue 7 transactions at a time
         .pre_cb=lcd_spi_pre_transfer_callback,  //Specify pre-transfer callback to handle D/C line
     };

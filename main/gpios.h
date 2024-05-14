@@ -13,12 +13,12 @@
 #define GPIO_MTR_R_FWD    	47
 #define GPIO_MTR_R_BWD    	48
 
-#define GPIO_LCD_SPI_SCLK 	18
-#define GPIO_LCD_SPI_MOSI   15
-#define GPIO_LCD_SPI_MISO   17
+#define GPIO_LCD_SPI_SCLK 	4
+#define GPIO_LCD_SPI_MOSI   16
+#define GPIO_LCD_SPI_MISO   15
 #define GPIO_LCD_SPI_DC     5
-#define GPIO_LCD_RST        16
-#define GPIO_LCD_CS         4
+#define GPIO_LCD_RST        17
+#define GPIO_LCD_CS         18
 #define GPIO_LCD_BK_LIGHT   7
 
 #define GPIO_IR_TX          20

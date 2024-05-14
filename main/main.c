@@ -24,7 +24,7 @@
 #include "main.h"
 
 #include "ctrl/ir_rec_ctrl.h"
-//#include "drivers/lcd_drvr.h"
+#include "drivers/lcd_drvr.h"
 #include "drivers/motor_drvr.h"
 
 static const char *TAG = "main";
@@ -42,10 +42,10 @@ void app_main() {
 	printf("\n********************************************************************************\n");
 
 	// Initialize all drivers
-//	lcd_drvr_init();
-	motor_drvr_init();
+	lcd_drvr_init();
+//  motor_drvr_init();
 //
-	ir_rec_drvr_init();
+//	ir_rec_drvr_init();
 
 	ESP_LOGI(TAG, "Init done.");
 }
