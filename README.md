@@ -36,11 +36,6 @@ See the Getting Started Guide for full steps to configure and use ESP-IDF to bui
 ## Expected Output
 
 ```
-
-I (10326) mtr_drvr: 7
-
-I (15326) main: Init done.
-I (15326) main_task: Returned from app_main()
 â†�[0;33m--- esp-idf-monitor 1.4.0 on \\.\COM3 115200 ---â†�[0m
 --- Quit: Ctrl+] | Menu: Ctrl+T | Help: Ctrl+T followed by Ctrl+H ---
 ESP-ROM:esp32s3-20210327
