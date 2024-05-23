@@ -37,11 +37,11 @@ typedef enum {
 //	ir_cmd_right,
 //	ir_cmd_ok,
 
+	ir_cmd_stop,
 	ir_cmd_aclk_fwd,
 	ir_cmd_fwd,
 	ir_cmd_clk_fwd,
 	ir_cmd_left,
-	ir_cmd_halt,
 	ir_cmd_right,
 	ir_cmd_aclk_bwd,
 	ir_cmd_bwd,
@@ -172,43 +172,39 @@ static void example_parse_nec_frame(rmt_symbol_word_t *rmt_nec_symbols, size_t s
             		switch (cmd_index){
             			case ir_cmd_aclk_fwd:
             				ESP_LOGI(TAG,".....ir_cmd_aclk_fwd......");
-            				motor_drvr_generic(0,0,1,0);
+            				motor_drvr_set_dir(0);
             				break;
             			case ir_cmd_fwd:
             				ESP_LOGI(TAG,"......ir_cmd_fwd.....");
-            				motor_drvr_generic(1,0,1,0);
+            				motor_drvr_set_dir(0);
             				break;
             			case ir_cmd_clk_fwd:
             				ESP_LOGI(TAG,".....ir_cmd_clk_fwd......");
-            				motor_drvr_generic(1,0,0,0);
+            				motor_drvr_set_dir(0);
             				break;
             			case ir_cmd_left:
             				ESP_LOGI(TAG,".....ir_cmd_left......");
-            				motor_drvr_generic(0,0,1,0);
-            				vTaskDelay(200);
-            				motor_drvr_generic(1,0,1,0);
+            				//motor_drvr_set_dir(0);
             				break;
-            			case ir_cmd_halt:
+            			case ir_cmd_stop:
             				ESP_LOGI(TAG,".....ir_cmd_halt......");
-            				motor_drvr_generic(0,0,0,0);
+            				//motor_drvr_set_dir(0);
             				break;
             			case ir_cmd_right:
             				ESP_LOGI(TAG,".....ir_cmd_right......");
-            				motor_drvr_generic(1,0,0,0);
-            				vTaskDelay(200);
-            				motor_drvr_generic(1,0,1,0);
+            				//motor_drvr_set_dir(0);
             				break;
             			case ir_cmd_aclk_bwd:
             				ESP_LOGI(TAG,".....ir_cmd_aclk_bwd......");
-            				motor_drvr_generic(0,1,0,0);
+            				//motor_drvr_set_dir(0);
             				break;
             			case ir_cmd_bwd:
             				ESP_LOGI(TAG,".....ir_cmd_bwd......");
-            				motor_drvr_generic(0,1,0,1);
+            				//motor_drvr_set_dir(0);
             				break;
             			case ir_cmd_clk_bwd:
             				ESP_LOGI(TAG,".....ir_cmd_clk_bwd......");
-            				motor_drvr_generic(0,0,0,1); // c-b
+            				//motor_drvr_set_dir(0);
             				break;
             			default:
             				ESP_LOGI(TAG,"Unlisted cmd");
@@ -261,7 +257,7 @@ void ir_drvr_cmd_str_init(){
 	ir_cmd[ir_cmd_fwd]      = 0xF20D;
 	ir_cmd[ir_cmd_clk_fwd]  = 0xF10E;
 	ir_cmd[ir_cmd_left]     = 0xEF10;
-	ir_cmd[ir_cmd_halt]     = 0xEE11;
+	ir_cmd[ir_cmd_stop]     = 0xEE11;
 	ir_cmd[ir_cmd_right]    = 0xED12;
 	ir_cmd[ir_cmd_aclk_bwd] = 0xEB14;
 	ir_cmd[ir_cmd_bwd]      = 0xEA15;

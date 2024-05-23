@@ -11,6 +11,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_system.h"
+#include "esp_log.h"
 #include "driver/spi_master.h"
 #include "driver/gpio.h"
 #include "gpios.h"
@@ -18,10 +19,6 @@
 #include "misc/pretty_effect.h"
 
 /*
- This code displays some fancy graphics on the 320x240 LCD on an ESP-WROVER_KIT board.
- This example demonstrates the use of both spi_device_transmit as well as
- spi_device_queue_trans/spi_device_get_trans_result and pre-transmit callbacks.
-
  Some info about the ILI9341: It has an C/D line, which is connected to a GPIO here. It expects this
  line to be low for a command and high for data. We use a pre-transmit callback here to control that
  line: every transaction has as the user-definable argument the needed state of the D/C line and just
@@ -30,14 +27,7 @@
 
 #define LCD_HOST    SPI2_HOST
 
-//#define PIN_NUM_MISO 17
-//#define PIN_NUM_MOSI 15
-//#define PIN_NUM_CLK  18
-//#define PIN_NUM_CS   4
-//
-//#define PIN_NUM_DC   5
-//#define PIN_NUM_RST  16
-//#define PIN_NUM_BCKL 7
+static const char *TAG = "lcd_drvr";
 
 //To speed up transfers, every SPI transfer sends a bunch of lines. This define specifies how many. More means more memory use,
 //but less overhead for setting up / finishing transfers. Make sure 240 is dividable by this.
@@ -250,31 +240,24 @@ void lcd_init(spi_device_handle_t spi)
     int lcd_detected_type = 0;
     int lcd_type = 0;
 
-    printf("LCD ID: %08"PRIx32"\n", lcd_id);
+    // printf("LCD ID: %08"PRIx32"\n", lcd_id);
     if ( lcd_id == 0 ) {
         //zero, ili
         lcd_detected_type = LCD_TYPE_ILI;
-        printf("ILI9341 detected.\n");
-    } else {
-        // none-zero, ST
-        lcd_detected_type = LCD_TYPE_ST;
-        printf("ST7789V detected.\n");
+        ESP_LOGI(TAG, "\nILI9341 detected.\n");
     }
 
 #ifdef CONFIG_LCD_TYPE_AUTO
     lcd_type = lcd_detected_type;
-#elif defined( CONFIG_LCD_TYPE_ST7789V )
-    printf("kconfig: force CONFIG_LCD_TYPE_ST7789V.\n");
-    lcd_type = LCD_TYPE_ST;
 #elif defined( CONFIG_LCD_TYPE_ILI9341 )
     printf("kconfig: force CONFIG_LCD_TYPE_ILI9341.\n");
     lcd_type = LCD_TYPE_ILI;
 #endif
     if ( lcd_type == LCD_TYPE_ST ) {
-        printf("LCD ST7789V initialization.\n");
+        ESP_LOGI(TAG, "LCD ST7789V initialization.\n");
         lcd_init_cmds = st_init_cmds;
     } else {
-        printf("LCD ILI9341 initialization.\n");
+    	ESP_LOGI(TAG, "LCD ILI9341 initialization.\n");
         lcd_init_cmds = ili_init_cmds;
     }
 

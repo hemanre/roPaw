@@ -12,19 +12,30 @@
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "driver/gpio.h"
+#include "driver/ledc.h"
 #include "gpios.h"
+#include "esp_err.h"
+#include "esp_log.h"
+#include "drivers/motor_drvr.h"
 
-#define GPIO_OUTPUT_PIN_SEL  ((1ULL<<GPIO_MTR_L_FWD) | (1ULL<<GPIO_MTR_L_BWD) | (1ULL<<GPIO_MTR_R_FWD) | (1ULL<<GPIO_MTR_R_BWD))
+#define MTR_A_DUTY    4095 // duty = 50%. (2^13) * 50% = 4096
+#define MTR_B_DUTY    4095
 
-#define ESP_INTR_FLAG_DEFAULT 0
+static ledc_timer_config_t ledc_timer;
+static ledc_channel_config_t ledc_channel_0;
+static ledc_channel_config_t ledc_channel_1;
+static ledc_channel_config_t ledc_channel_2;
+static ledc_channel_config_t ledc_channel_3;
+
+static const char *TAG = "mtr_drvr";
 
 // *********************Look-up table for Motor direction**********************************************
 // ----------------------------------------------------------------------------------------------------
-// GPIO_MTR_L_FWD | GPIO_MTR_L_BWD | GPIO_MTR_R_FWD | GPIO_MTR_R_BWD | direction
+// GPIO_MTR_IN1   | GPIO_MTR_IN2   | GPIO_MTR_IN3   | GPIO_MTR_IN4   | direction
 // ---------------|----------------|----------------|----------------|---------------------------------
-// 		0		  |		  0		   |	    0		|		0		 |    halt
-// 		1		  |		  0		   |		1		|		0		 | straight forward
-// 		0		  |		  1		   |		0		|		1		 | straight backward
+// 		0		  |		  0		   |	    0		|		0		 | halt
+// 		1		  |		  0		   |		0		|		1		 | straight forward
+// 		0		  |		  1		   |		1		|		0		 | straight backward
 // 		1		  |		  0		   |		0		|		0		 | rotate clockwise forward
 // 		0		  |		  1		   |		0		|		0		 | rotate clockwise backward
 // 		0		  |		  0		   |		1		|		0		 | rotate anti-clockwise forward
@@ -32,114 +43,119 @@
 
 // ************************* Helper functions **********************************************************
 
-void motor_drvr_clkwise_fwd(void){
-    gpio_set_level(GPIO_MTR_L_FWD, 1);
-    gpio_set_level(GPIO_MTR_L_BWD, 0);
-    gpio_set_level(GPIO_MTR_R_FWD, 0);
-    gpio_set_level(GPIO_MTR_R_BWD, 0);
-}
-
-void motor_drvr_clkwise_bwd(void){
-    gpio_set_level(GPIO_MTR_L_FWD, 0);
-    gpio_set_level(GPIO_MTR_L_BWD, 1);
-    gpio_set_level(GPIO_MTR_R_FWD, 0);
-    gpio_set_level(GPIO_MTR_R_BWD, 0);
-}
-
-void motor_drvr_anticlkwise_fwd(void){
-    gpio_set_level(GPIO_MTR_L_FWD, 0);
-    gpio_set_level(GPIO_MTR_L_BWD, 0);
-    gpio_set_level(GPIO_MTR_R_FWD, 1);
-    gpio_set_level(GPIO_MTR_R_BWD, 0);
-}
-
-void motor_drvr_anticlkwise_bwd(void){
-    gpio_set_level(GPIO_MTR_L_FWD, 0);
-    gpio_set_level(GPIO_MTR_L_BWD, 1);
-    gpio_set_level(GPIO_MTR_R_FWD, 0);
-    gpio_set_level(GPIO_MTR_R_BWD, 0);
-}
-
-void motor_drvr_straight_fwd(void){
-    gpio_set_level(GPIO_MTR_L_FWD, 1);
-    gpio_set_level(GPIO_MTR_L_BWD, 0);
-    gpio_set_level(GPIO_MTR_R_FWD, 1);
-    gpio_set_level(GPIO_MTR_R_BWD, 0);
-}
-
-void motor_drvr_straight_bwd(void){
-    gpio_set_level(GPIO_MTR_L_FWD, 0);
-    gpio_set_level(GPIO_MTR_L_BWD, 1);
-    gpio_set_level(GPIO_MTR_R_FWD, 0);
-    gpio_set_level(GPIO_MTR_R_BWD, 1);
-}
-
-void motor_drvr_halt(void){
-    gpio_set_level(GPIO_MTR_L_FWD, 0);
-    gpio_set_level(GPIO_MTR_L_BWD, 0);
-    gpio_set_level(GPIO_MTR_R_FWD, 0);
-    gpio_set_level(GPIO_MTR_R_BWD, 0);
-}
-
 // test function
 
-void motor_drvr_generic(uint8_t l_fwd, uint8_t l_bwd, uint8_t r_fwd, uint8_t r_bwd){
-    gpio_set_level(GPIO_MTR_L_FWD, l_fwd);
-    gpio_set_level(GPIO_MTR_L_BWD, l_bwd);
-    gpio_set_level(GPIO_MTR_R_FWD, r_fwd);
-    gpio_set_level(GPIO_MTR_R_BWD, r_bwd);
+void motor_drvr_set_dir(uint8_t dir){
+	ESP_LOGI(TAG,"Motor direction: %d\n", dir);
+	switch (dir){
+		case mtr_cmd_stop:
+			motor_drvr_set_pwm(0,0,0,0);
+			break;
+		case mtr_cmd_fwd:
+			motor_drvr_set_pwm(MTR_A_DUTY,0,0,MTR_A_DUTY);
+			break;
+		case mtr_cmd_bwd:
+			motor_drvr_set_pwm(0,MTR_A_DUTY,MTR_A_DUTY,0);
+			break;
+		case mtr_cmd_left:
+			motor_drvr_set_pwm(MTR_A_DUTY,0,0,0);
+			break;
+		// todos
+		case mtr_cmd_right:
+			motor_drvr_set_pwm(0,0,0,0);
+			break;
+		case mtr_cmd_clk_fwd:
+			motor_drvr_set_pwm(0,0,0,0);
+			break;
+		case mtr_cmd_aclk_bwd:
+			motor_drvr_set_pwm(0,0,0,0);
+			break;
+		case mtr_cmd_clk_bwd:
+			motor_drvr_set_pwm(0,0,0,0);
+			break;
+		default:
+			ESP_LOGI(TAG,"Unlisted cmd");
+			break;
+	}
+}
+
+void motor_drvr_set_pwm(uint32_t chnl_0_pwm, uint32_t chnl_1_pwm, uint32_t chnl_2_pwm, uint32_t chnl_3_pwm){
+    // Set duty to 50%
+    ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, chnl_0_pwm));
+    // Update duty to apply the new value
+    ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0));
+    // Set duty to 50%
+	ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, chnl_1_pwm));
+	// Update duty to apply the new value
+	ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1));
+	// Set duty to 50%
+	ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2, chnl_2_pwm));
+	// Update duty to apply the new value
+	ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2));
+	// Set duty to 50%
+	ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_3, chnl_3_pwm));
+	// Update duty to apply the new value
+	ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_3));
 }
 
 // ******************************** Driver initialization *********************************************
 
-void motor_drvr_init(void)
+int8_t motor_drvr_init(void)
 {
-    //zero-initialize the config structure.
-    gpio_config_t io_conf = {};
-    //disable interrupt
-    io_conf.intr_type = GPIO_INTR_DISABLE;
-    //set as output mode
-    io_conf.mode = GPIO_MODE_OUTPUT;
-    //bit mask of the pins that you want to set,e.g.GPIO18/19
-    io_conf.pin_bit_mask = GPIO_OUTPUT_PIN_SEL;
-    //disable pull-down mode
-    io_conf.pull_down_en = 0;
-    //disable pull-up mode
-    io_conf.pull_up_en = 0;
-    //configure GPIO with the given settings
-    gpio_config(&io_conf);
+	esp_err_t retVal = ESP_FAIL;
+    // Prepare and then apply the LEDC PWM timer configuration
+	ledc_timer.speed_mode       = LEDC_LOW_SPEED_MODE;
+	ledc_timer.timer_num        = LEDC_TIMER_0;
+	ledc_timer.duty_resolution  = LEDC_TIMER_13_BIT;
+	ledc_timer.freq_hz          = 4000;  // Set output frequency at 4 kHz
+	ledc_timer.clk_cfg          = LEDC_AUTO_CLK;
 
-//	printf("\n1\n");
-//	motor_drvr_generic(1,0,0,0);
-//	vTaskDelay(4000);
-//	motor_drvr_generic(0,0,0,0);
-//	vTaskDelay(1000);
-//	printf("\n2\n");
-//	motor_drvr_generic(0,1,0,0);
-//	vTaskDelay(4000);
-//	motor_drvr_generic(0,0,0,0);
-//	vTaskDelay(1000);
-//	printf("\n3\n");
-//	motor_drvr_generic(0,0,1,0);
-//	vTaskDelay(4000);
-//	motor_drvr_generic(0,0,0,0);
-//	vTaskDelay(1000);
-//	printf("\n4\n");
-//	motor_drvr_generic(0,0,0,1);
-//	vTaskDelay(4000);
-//	motor_drvr_generic(0,0,0,0);
-//	vTaskDelay(1000);
-//
-//	printf("\n5\n");
-//	motor_drvr_generic(1,0,1,0);
-//	vTaskDelay(4000);
-//	motor_drvr_generic(0,0,0,0);
-//	vTaskDelay(1000);
-//	printf("\n6\n");
-//	motor_drvr_generic(0,1,0,1);
-//	vTaskDelay(4000);
-//	motor_drvr_generic(0,0,0,0);
-//	vTaskDelay(1000);
+    retVal = ledc_timer_config(&ledc_timer);
+
+    // Prepare and then apply the LEDC PWM channel configuration
+    if(retVal == ESP_OK){
+    	ledc_channel_0.speed_mode     = LEDC_LOW_SPEED_MODE;
+    	ledc_channel_0.channel        = LEDC_CHANNEL_0;
+		ledc_channel_0.timer_sel      = LEDC_TIMER_0;
+		ledc_channel_0.intr_type      = LEDC_INTR_DISABLE;
+		ledc_channel_0.gpio_num       = GPIO_MTR_IN1;
+		ledc_channel_0.duty           = 0; // Set duty to 0%
+		ledc_channel_0.hpoint         = 0;
+
+		retVal = ledc_channel_config(&ledc_channel_0);
+    }
+    if(retVal == ESP_OK){
+		ledc_channel_1.speed_mode     = LEDC_LOW_SPEED_MODE;
+		ledc_channel_1.channel        = LEDC_CHANNEL_1;
+		ledc_channel_1.timer_sel      = LEDC_TIMER_0;
+		ledc_channel_1.intr_type      = LEDC_INTR_DISABLE;
+		ledc_channel_1.gpio_num       = GPIO_MTR_IN2;
+		ledc_channel_1.duty           = 0; // Set duty to 0%
+		ledc_channel_1.hpoint         = 0;
+
+		retVal = ledc_channel_config(&ledc_channel_1);
+    }
+    if(retVal == ESP_OK){
+    	ledc_channel_2.speed_mode     = LEDC_LOW_SPEED_MODE;
+		ledc_channel_2.channel        = LEDC_CHANNEL_2;
+		ledc_channel_2.timer_sel      = LEDC_TIMER_0;
+		ledc_channel_2.intr_type      = LEDC_INTR_DISABLE;
+		ledc_channel_2.gpio_num       = GPIO_MTR_IN3;
+		ledc_channel_2.duty           = 0; // Set duty to 0%
+		ledc_channel_2.hpoint         = 0;
+
+		retVal = ledc_channel_config(&ledc_channel_2);
+	}
+    if(retVal == ESP_OK){
+    	ledc_channel_3.speed_mode     = LEDC_LOW_SPEED_MODE;
+		ledc_channel_3.channel        = LEDC_CHANNEL_3;
+		ledc_channel_3.timer_sel      = LEDC_TIMER_0;
+		ledc_channel_3.intr_type      = LEDC_INTR_DISABLE;
+		ledc_channel_3.gpio_num       = GPIO_MTR_IN4;
+		ledc_channel_3.duty           = 0; // Set duty to 0%
+		ledc_channel_3.hpoint         = 0;
+
+		retVal = ledc_channel_config(&ledc_channel_3);
+	}
+	return retVal;
 }
-
-

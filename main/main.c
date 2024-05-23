@@ -43,9 +43,10 @@ void app_main() {
 
 	// Initialize all drivers
 	lcd_drvr_init();
-//  motor_drvr_init();
-//
-//	ir_rec_drvr_init();
+
+    motor_drvr_init();
+
+	ir_rec_drvr_init();
 
 	ESP_LOGI(TAG, "Init done.");
 }

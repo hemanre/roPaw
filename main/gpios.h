@@ -8,10 +8,10 @@
 #ifndef MAIN_GPIOS_H_
 #define MAIN_GPIOS_H_
 
-#define GPIO_MTR_L_FWD    	21
-#define GPIO_MTR_L_BWD    	20
-#define GPIO_MTR_R_FWD    	47
-#define GPIO_MTR_R_BWD    	48
+#define GPIO_MTR_IN1    	42
+#define GPIO_MTR_IN2    	41
+#define GPIO_MTR_IN3    	40
+#define GPIO_MTR_IN4    	39
 
 #define GPIO_LCD_SPI_SCLK 	4
 #define GPIO_LCD_SPI_MOSI   16
